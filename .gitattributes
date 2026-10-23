@@ -1,0 +1,14 @@
+* text=auto
+
+# Scripts must keep their native line endings
+gradlew text eol=lf
+*.sh text eol=lf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binary files
+*.jar binary
+*.png binary
+*.webp binary
+*.jks binary
+*.keystore binary

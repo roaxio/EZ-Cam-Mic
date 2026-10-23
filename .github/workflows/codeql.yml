@@ -1,0 +1,32 @@
+name: CodeQL
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "23 4 * * 1"
+  workflow_dispatch:
+permissions:
+  actions: read
+  contents: read
+  security-events: write
+jobs:
+  analyze:
+    if: ${{ !github.event.repository.private }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: github/codeql-action/init@v4
+        with:
+          languages: java-kotlin
+          build-mode: manual
+      - uses: gradle/actions/setup-gradle@v6
+      # Kotlin is analyzed from a real compile; the build cache is off so nothing is skipped.
+      - name: Build
+        run: ./gradlew --no-build-cache --no-configuration-cache assembleDebug
+      - uses: github/codeql-action/analyze@v4

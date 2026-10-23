@@ -1,0 +1,38 @@
+# Gradle / build outputs
+.gradle/
+.kotlin/
+build/
+app/build/
+captures/
+.externalNativeBuild
+.cxx
+
+# IDE & OS metadata
+.idea/
+*.iml
+.vscode/
+.antigravity/
+.cursor/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Local machine config & scripts
+local.properties
+.env*
+*.bat
+!gradlew.bat
+
+# Signing material & keys - never commit
+*.jks
+*.keystore
+*.p12
+*.pem
+*.key
+keystore.properties
+
+# Build artifacts
+*.apk
+*.aab
+release_assets/
+*.log

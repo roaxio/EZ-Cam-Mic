@@ -1,0 +1,56 @@
+name: Bug report
+description: Something doesn't work as expected
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: "**Remove passwords** from any URL, screenshot or log before posting."
+  - type: input
+    id: version
+    attributes:
+      label: EZ-Cam-Mic version
+      placeholder: "e.g. 1.1.0 (Android Settings > Apps > EZ-Cam-Mic)"
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Phone model and Android version
+      placeholder: "e.g. Pixel 8, Android 16"
+    validations:
+      required: true
+  - type: dropdown
+    id: connection
+    attributes:
+      label: Connection
+      options: [Wi-Fi, USB tethering, Both]
+    validations:
+      required: true
+  - type: input
+    id: client
+    attributes:
+      label: Client and settings
+      placeholder: "StreamBridge 1.2 / OBS / browser; HTTPS on/off, login on/off"
+  - type: dropdown
+    id: part
+    attributes:
+      label: Affected part
+      options: [Camera, Microphone, Both, Web dashboard, App UI, Other]
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected vs. actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Log excerpt
+      description: "Optional: `adb logcat` output around the problem."
+      render: text
