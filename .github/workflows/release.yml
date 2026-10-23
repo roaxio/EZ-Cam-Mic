@@ -1,4 +1,4 @@
-# Tag-triggered release: builds the release APK and attaches it to a GitHub release with checksums.txt.
+# Tag-triggered release: builds the release APK and attaches it to a GitHub release.
 # Signed when the KEYSTORE_BASE64, STORE_PASSWORD, KEY_ALIAS and KEY_PASSWORD secrets are set,
 # otherwise the APK is published unsigned (marked "-unsigned" in its name).
 name: Release
@@ -57,9 +57,6 @@ jobs:
             echo "::warning::No signing secrets set; publishing an unsigned APK."
             cp "$OUT/app-release-unsigned.apk" "release_assets/EZ-Cam-Mic-${GITHUB_REF_NAME}-unsigned.apk"
           fi
-          cd release_assets
-          sha256sum EZ-Cam-Mic-* > checksums.txt
-          cat checksums.txt
       # Free provenance attestation. Note: on PRIVATE repos GitHub only supports attestations on
       # Enterprise Cloud plans, so the step is skipped while the repo is private.
       - name: Attest build provenance
@@ -69,9 +66,7 @@ jobs:
           subject-path: release_assets/EZ-Cam-Mic-*
       - uses: softprops/action-gh-release@v3
         with:
-          files: |
-            release_assets/EZ-Cam-Mic-*
-            release_assets/checksums.txt
+          files: release_assets/EZ-Cam-Mic-*
           generate_release_notes: true
           draft: false
           prerelease: false
