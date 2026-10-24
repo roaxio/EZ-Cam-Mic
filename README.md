@@ -6,6 +6,8 @@
 
 **Turn your Android phone into a Wi-Fi & USB webcam and microphone for your PC.**
 
+[Download APK](https://github.com/roaxio/EZ-Cam-Mic/releases/latest) · [Get it with Obtainium](https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/roaxio/EZ-Cam-Mic) · [Build from source](#building)
+
 Streams video (MJPEG) and audio (16-bit PCM WAV) directly to your local network. Pairs with [StreamBridge](https://github.com/roaxio/StreamBridge) to provide a virtual webcam and microphone for Zoom, Discord, OBS, and other PC applications.
 
 </div>
