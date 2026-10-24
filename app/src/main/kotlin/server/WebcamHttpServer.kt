@@ -5,6 +5,7 @@ import io.github.roaxio.ezcammic.BuildConfig
 import io.github.roaxio.ezcammic.audio.AudioStreamManager
 import io.github.roaxio.ezcammic.camera.CameraStreamManager
 import io.github.roaxio.ezcammic.model.CameraFacing
+import io.github.roaxio.ezcammic.model.ConnectedClientInfo
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -46,6 +47,22 @@ class WebcamHttpServer(
 
     val maxStreamingAudioClients: Int
         get() = audioStreamManager.maxStreamingClients
+
+    private class StreamingClientSession(
+        val id: String,
+        val ipAddress: String,
+        val port: Int,
+        val isUsb: Boolean,
+        val userAgent: String?,
+        val socket: Socket,
+        val outputStream: OutputStream,
+        val isVideo: Boolean,
+        val isAudio: Boolean,
+        val connectedSinceEpochMs: Long = System.currentTimeMillis()
+    )
+
+    private val sessionBlockedIps: MutableSet<String> = Collections.newSetFromMap(ConcurrentHashMap<String, Boolean>())
+    private val activeStreamingSessions = ConcurrentHashMap<Socket, StreamingClientSession>()
 
     private var serverSocket: ServerSocket? = null
     private var serverJob: Job? = null
@@ -138,6 +155,64 @@ class WebcamHttpServer(
     fun getAudioClientsCount(): Int = audioStreamManager.getConnectedClientsCount()
     fun getConnectedClientsCount(): Int = getVideoClientsCount() + getAudioClientsCount()
 
+    fun disconnectClient(clientIdentifier: String, blockForSession: Boolean = false) {
+        val targetIp = if (clientIdentifier.contains(":")) {
+            clientIdentifier.substringBefore(":")
+        } else {
+            clientIdentifier
+        }
+        if (blockForSession && targetIp.isNotBlank()) {
+            sessionBlockedIps.add(targetIp)
+        }
+
+        val entries = activeStreamingSessions.entries.toList()
+        for ((sock, session) in entries) {
+            if (session.ipAddress == targetIp || session.ipAddress == clientIdentifier || session.id == clientIdentifier) {
+                if (session.isVideo) {
+                    videoFrameDistributor.unregisterClient(session.outputStream)
+                }
+                if (session.isAudio) {
+                    audioStreamManager.unregisterAudioClient(session.outputStream)
+                }
+                activeStreamingSessions.remove(sock)
+                try {
+                    if (!sock.isClosed) sock.close()
+                } catch (ignored: Exception) {}
+            }
+        }
+    }
+
+    fun unblockClient(ipAddress: String) {
+        sessionBlockedIps.remove(ipAddress)
+    }
+
+    fun getBlockedClients(): Set<String> {
+        return sessionBlockedIps.toSet()
+    }
+
+    fun getConnectedClients(): List<ConnectedClientInfo> {
+        val sessions = activeStreamingSessions.values.toList()
+        val grouped = sessions.groupBy { it.ipAddress }
+        return grouped.map { (ip, clientList) ->
+            val hasVideo = clientList.any { it.isVideo }
+            val hasAudio = clientList.any { it.isAudio }
+            val isUsb = clientList.any { it.isUsb }
+            val userAgent = clientList.mapNotNull { it.userAgent }.firstOrNull()
+            val firstConnected = clientList.minOfOrNull { it.connectedSinceEpochMs } ?: System.currentTimeMillis()
+            val mainPort = clientList.firstOrNull()?.port ?: 0
+            ConnectedClientInfo(
+                id = ip,
+                ipAddress = ip,
+                port = mainPort,
+                isUsb = isUsb,
+                userAgent = userAgent,
+                hasVideo = hasVideo,
+                hasAudio = hasAudio,
+                connectedSinceEpochMs = firstConnected
+            )
+        }
+    }
+
     fun start(
         portNumber: Int = 4747,
         useHttps: Boolean = true,
@@ -155,6 +230,8 @@ class WebcamHttpServer(
         this.authPassword = password
         this.isWebStreamingEnabled = webEnabled
         this.isUsbStreamingEnabled = usbEnabled
+        sessionBlockedIps.clear()
+        activeStreamingSessions.clear()
         videoFrameDistributor.reset()
 
         try {
@@ -174,6 +251,24 @@ class WebcamHttpServer(
                         val socket = serverSocket?.accept() ?: break
                         socket.soTimeout = 4000
                         socket.tcpNoDelay = true
+
+                        // Check session-scoped blacklist
+                        val remoteIp = socket.inetAddress?.hostAddress ?: ""
+                        if (sessionBlockedIps.contains(remoteIp)) {
+                            try {
+                                val os = socket.getOutputStream()
+                                val response = ("HTTP/1.1 403 Forbidden\r\n" +
+                                        "Content-Type: text/plain\r\n" +
+                                        "Connection: close\r\n\r\n" +
+                                        "Access blocked for this streaming session.\r\n").toByteArray(Charsets.US_ASCII)
+                                os.write(response)
+                                os.flush()
+                            } catch (ignored: Exception) {
+                            } finally {
+                                try { socket.close() } catch (ignored: Exception) {}
+                            }
+                            continue
+                        }
 
                         // Prune closed or disconnected sockets before admission check
                         activeClientSockets.removeIf { it.isClosed || !it.isConnected }
@@ -247,12 +342,23 @@ class WebcamHttpServer(
 
             // Parse headers
             var headerAuthHeader: String? = null
+            var headerUserAgent: String? = null
             var line: String? = reader.readLine()
             while (!line.isNullOrEmpty()) {
                 if (line.startsWith("Authorization:", ignoreCase = true)) {
                     headerAuthHeader = line.substringAfter(":").trim()
+                } else if (line.startsWith("User-Agent:", ignoreCase = true)) {
+                    headerUserAgent = line.substringAfter(":").trim()
                 }
                 line = reader.readLine()
+            }
+
+            // Check session-scoped blacklist
+            val clientIp = socket.inetAddress?.hostAddress ?: ""
+            if (sessionBlockedIps.contains(clientIp)) {
+                serveForbiddenMode(outputStream, "Access blocked for this streaming session.")
+                socket.close()
+                return
             }
 
             // Parse path and query params
@@ -366,6 +472,21 @@ class WebcamHttpServer(
                         return
                     }
 
+                    val clientIp = socket.inetAddress?.hostAddress ?: "Unknown"
+                    val session = StreamingClientSession(
+                        id = "$clientIp:${socket.port}",
+                        ipAddress = clientIp,
+                        port = socket.port,
+                        isUsb = isUsbConnection(socket),
+                        userAgent = headerUserAgent,
+                        socket = socket,
+                        outputStream = outputStream,
+                        isVideo = true,
+                        isAudio = false,
+                        connectedSinceEpochMs = System.currentTimeMillis()
+                    )
+                    activeStreamingSessions[socket] = session
+
                     try {
                         val buffer = ByteArray(1024)
                         while (isRunning && !socket.isClosed && socket.isConnected && videoFrameDistributor.isClientActive(outputStream)) {
@@ -375,6 +496,7 @@ class WebcamHttpServer(
                     } catch (e: Exception) {
                         // Client closed or socket terminated
                     } finally {
+                        activeStreamingSessions.remove(socket)
                         videoFrameDistributor.unregisterClient(outputStream)
                         try {
                             if (!socket.isClosed) socket.close()
@@ -405,6 +527,20 @@ class WebcamHttpServer(
                     socket.sendBufferSize = 8192
                     serveAudioStreamHeaders(outputStream)
                     audioStreamManager.registerAudioClient(outputStream)
+                    val clientIp = socket.inetAddress?.hostAddress ?: "Unknown"
+                    val session = StreamingClientSession(
+                        id = "$clientIp:${socket.port}",
+                        ipAddress = clientIp,
+                        port = socket.port,
+                        isUsb = isUsbConnection(socket),
+                        userAgent = headerUserAgent,
+                        socket = socket,
+                        outputStream = outputStream,
+                        isVideo = false,
+                        isAudio = true,
+                        connectedSinceEpochMs = System.currentTimeMillis()
+                    )
+                    activeStreamingSessions[socket] = session
                     try {
                         val buffer = ByteArray(1024)
                         while (isRunning && !socket.isClosed && socket.isConnected && audioStreamManager.isAudioClientActive(outputStream)) {
@@ -418,6 +554,7 @@ class WebcamHttpServer(
                     } catch (e: Exception) {
                         // Client closed or socket terminated
                     } finally {
+                        activeStreamingSessions.remove(socket)
                         audioStreamManager.unregisterAudioClient(outputStream)
                         try {
                             if (!socket.isClosed) socket.close()
@@ -741,6 +878,8 @@ class WebcamHttpServer(
         }
 
         videoFrameDistributor.stop()
+        activeStreamingSessions.clear()
+        sessionBlockedIps.clear()
 
         try {
             serverSocket?.close()

@@ -187,3 +187,15 @@ data class WebcamConfig(
         get() = getProfileForSensor(selectedCameraId).landscapeResolution
 }
 
+data class ConnectedClientInfo(
+    val id: String,
+    val ipAddress: String,
+    val port: Int,
+    val isUsb: Boolean,
+    val userAgent: String?,
+    val hasVideo: Boolean,
+    val hasAudio: Boolean,
+    val connectedSinceEpochMs: Long
+)
+
+

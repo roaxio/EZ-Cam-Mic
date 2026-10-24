@@ -10,6 +10,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -73,7 +74,8 @@ fun CameraViewfinder(
     isLandscape: Boolean = false,
     isBlackout: Boolean = false,
     maxViewportHeight: Dp? = null,
-    audioLevelRms: Float = stats.audioLevelRms
+    audioLevelRms: Float = stats.audioLevelRms,
+    onOpenClientsList: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val previewView = remember(context) {
@@ -357,12 +359,14 @@ fun CameraViewfinder(
                         horizontalArrangement = Arrangement.spacedBy(4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Clients badge
+                        // Clients badge (clickable to view and manage connected clients)
                         Row(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(8.dp))
                                 .background(Color(0xCC0F172A))
                                 .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(8.dp))
+                                .clickable(onClick = onOpenClientsList)
+                                .testTag("camera_viewfinder_clients_badge")
                                 .padding(horizontal = if (isCompactHud) 6.dp else 8.dp, vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -374,7 +378,7 @@ fun CameraViewfinder(
                             )
                             Spacer(modifier = Modifier.width(3.dp))
                             Text(
-                                text = "${stats.connectedClients} PC",
+                                text = if (isCompactHud) "${stats.connectedClients} CL" else if (stats.connectedClients == 1) "1 CLIENT" else "${stats.connectedClients} CLIENTS",
                                 fontSize = if (isCompactHud) 10.sp else 11.sp,
                                 fontFamily = FontFamily.Monospace,
                                 fontWeight = FontWeight.SemiBold,

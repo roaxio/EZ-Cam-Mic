@@ -155,4 +155,27 @@ class CoreLogicTest {
     val pausedStats = defaultStats.copy(isCameraStreaming = false)
     assertFalse(pausedStats.isCameraStreaming)
   }
+
+  @Test
+  fun testConnectedClientInfo_propertiesAndDefaults() {
+    val client = io.github.roaxio.ezcammic.model.ConnectedClientInfo(
+      id = "192.168.1.100",
+      ipAddress = "192.168.1.100",
+      port = 54321,
+      isUsb = false,
+      userAgent = "OBS/30.0.0",
+      hasVideo = true,
+      hasAudio = true,
+      connectedSinceEpochMs = 1700000000000L
+    )
+
+    assertEquals("192.168.1.100", client.id)
+    assertEquals("192.168.1.100", client.ipAddress)
+    assertEquals(54321, client.port)
+    assertFalse(client.isUsb)
+    assertEquals("OBS/30.0.0", client.userAgent)
+    assertTrue(client.hasVideo)
+    assertTrue(client.hasAudio)
+    assertEquals(1700000000000L, client.connectedSinceEpochMs)
+  }
 }

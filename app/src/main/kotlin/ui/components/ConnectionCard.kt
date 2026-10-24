@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.HelpOutline
@@ -204,6 +205,45 @@ fun ConnectionCard(
                             Spacer(modifier = Modifier.width(4.dp))
                             Text("AUTH", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = CyanAccent)
                         }
+                    }
+                }
+            }
+
+            if (stats.isRunning) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color(0xFF0F172A))
+                        .border(1.dp, Color(0xFF1E293B), RoundedCornerShape(8.dp))
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(7.dp)
+                                .clip(CircleShape)
+                                .background(if (stats.connectedClients > 0) EmeraldLive else TextSecondary)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = if (stats.connectedClients == 0) "No Active Clients" else "${stats.connectedClients} Active Stream Client${if (stats.connectedClients == 1) "" else "s"}",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (stats.connectedClients > 0) EmeraldLive else TextSecondary
+                        )
+                    }
+
+                    if (stats.connectedClients > 0) {
+                        Text(
+                            text = "Video & Mic count as 1 client each",
+                            fontSize = 10.sp,
+                            color = TextSecondary,
+                            fontFamily = FontFamily.Monospace
+                        )
                     }
                 }
             }

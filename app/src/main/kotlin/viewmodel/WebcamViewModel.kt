@@ -16,6 +16,7 @@ import io.github.roaxio.ezcammic.camera.FpsSupport
 import io.github.roaxio.ezcammic.data.SettingsPreferences
 import io.github.roaxio.ezcammic.model.AspectRatioOption
 import io.github.roaxio.ezcammic.model.CameraSensorInfo
+import io.github.roaxio.ezcammic.model.ConnectedClientInfo
 import io.github.roaxio.ezcammic.model.ServerStats
 import io.github.roaxio.ezcammic.model.StreamResolution
 import io.github.roaxio.ezcammic.model.WebcamConfig
@@ -102,6 +103,43 @@ class WebcamViewModel(application: Application) : AndroidViewModel(application) 
 
     private val _showUsbDialog = MutableStateFlow(false)
     val showUsbDialog: StateFlow<Boolean> = _showUsbDialog.asStateFlow()
+
+    private val _showClientsDialog = MutableStateFlow(false)
+    val showClientsDialog: StateFlow<Boolean> = _showClientsDialog.asStateFlow()
+
+    private val _connectedClients = MutableStateFlow<List<ConnectedClientInfo>>(emptyList())
+    val connectedClients: StateFlow<List<ConnectedClientInfo>> = _connectedClients.asStateFlow()
+
+    private val _blockedIps = MutableStateFlow<Set<String>>(emptySet())
+    val blockedIps: StateFlow<Set<String>> = _blockedIps.asStateFlow()
+
+    fun setShowClientsDialog(show: Boolean) {
+        _showClientsDialog.value = show
+        if (show) {
+            refreshConnectedClients()
+        }
+    }
+
+    fun disconnectClient(clientIdentifier: String, blockForSession: Boolean = false) {
+        httpServer.disconnectClient(clientIdentifier, blockForSession)
+        refreshConnectedClients()
+        syncSmartNotification(force = true)
+    }
+
+    fun unblockClient(ipAddress: String) {
+        httpServer.unblockClient(ipAddress)
+        refreshConnectedClients()
+    }
+
+    fun refreshConnectedClients() {
+        if (httpServer.isRunning) {
+            _connectedClients.value = httpServer.getConnectedClients()
+            _blockedIps.value = httpServer.getBlockedClients()
+        } else {
+            _connectedClients.value = emptyList()
+            _blockedIps.value = emptySet()
+        }
+    }
 
     private var statsJob: Job? = null
     private var streamUptimeSeconds = 0L
@@ -344,6 +382,9 @@ class WebcamViewModel(application: Application) : AndroidViewModel(application) 
                     )
                 }
                 syncSmartNotification()
+                if (_showClientsDialog.value) {
+                    refreshConnectedClients()
+                }
             }
         }
     }
@@ -367,6 +408,9 @@ class WebcamViewModel(application: Application) : AndroidViewModel(application) 
         audioManager.stop()
         cameraManager.unbind()
         currentLifecycleOwner = null
+        _connectedClients.value = emptyList()
+        _blockedIps.value = emptySet()
+        _showClientsDialog.value = false
         _stats.update { it.copy(isRunning = false, connectedClients = 0, currentFps = 0.0, bitrateKbps = 0.0) }
     }
 

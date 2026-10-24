@@ -70,6 +70,7 @@ import io.github.roaxio.ezcammic.model.CameraFacing
 import io.github.roaxio.ezcammic.model.StreamOrientation
 import io.github.roaxio.ezcammic.ui.components.BlackoutScreen
 import io.github.roaxio.ezcammic.ui.components.CameraViewfinder
+import io.github.roaxio.ezcammic.ui.components.ConnectedClientsDialog
 import io.github.roaxio.ezcammic.ui.components.ConnectionCard
 import io.github.roaxio.ezcammic.ui.components.ControlBar
 import io.github.roaxio.ezcammic.ui.components.UsbSetupGuideDialog
@@ -104,6 +105,7 @@ fun WebcamStudioScreen(
 
     val audioLevelRms by viewModel.audioLevelRms.collectAsState()
     val showSettingsSheet by viewModel.showSettingsSheet.collectAsState()
+    val showClientsDialog by viewModel.showClientsDialog.collectAsState()
 
 
     var previewViewRef by remember { mutableStateOf<PreviewView?>(null) }
@@ -255,6 +257,7 @@ fun WebcamStudioScreen(
                                     isLandscape = true,
                                     isBlackout = isBlackout,
                                     audioLevelRms = audioLevelRms,
+                                    onOpenClientsList = { viewModel.setShowClientsDialog(true) },
                                     onPreviewViewReady = { pv ->
                                         previewViewRef = pv
                                         viewModel.updatePreviewSurfaceProvider(pv.surfaceProvider)
@@ -329,6 +332,7 @@ fun WebcamStudioScreen(
                                 isBlackout = isBlackout,
                                 audioLevelRms = audioLevelRms,
                                 maxViewportHeight = if (isShort) minOf(viewportHeight * 0.55f, 360.dp) else null,
+                                onOpenClientsList = { viewModel.setShowClientsDialog(true) },
                                 onPreviewViewReady = { pv ->
                                     previewViewRef = pv
                                     viewModel.updatePreviewSurfaceProvider(pv.surfaceProvider)
@@ -397,6 +401,14 @@ fun WebcamStudioScreen(
             SettingsScreen(
                 viewModel = viewModel,
                 onNavigateBack = { viewModel.setShowSettingsSheet(false) }
+            )
+        }
+
+        // Connected Clients Dialog
+        if (showClientsDialog) {
+            ConnectedClientsDialog(
+                viewModel = viewModel,
+                onDismiss = { viewModel.setShowClientsDialog(false) }
             )
         }
 
