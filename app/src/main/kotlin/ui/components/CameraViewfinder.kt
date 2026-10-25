@@ -11,6 +11,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -30,6 +31,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Computer
+import androidx.compose.material.icons.filled.Fullscreen
+import androidx.compose.material.icons.filled.FullscreenExit
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MicOff
 import androidx.compose.material.icons.filled.VideocamOff
@@ -47,6 +50,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 
 import androidx.compose.ui.platform.testTag
@@ -75,6 +79,8 @@ fun CameraViewfinder(
     isBlackout: Boolean = false,
     maxViewportHeight: Dp? = null,
     audioLevelRms: Float = stats.audioLevelRms,
+    isFullscreen: Boolean = false,
+    onToggleFullscreen: () -> Unit = {},
     onOpenClientsList: () -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -118,7 +124,9 @@ fun CameraViewfinder(
         val availHeight = maxHeight
 
         // Compute dimension boundaries that preserve currentRatio without cutting off or bloating
-        val containerHeight = if (availHeight != Dp.Infinity && availHeight > 0.dp) {
+        val containerHeight = if (isFullscreen) {
+            availHeight
+        } else if (availHeight != Dp.Infinity && availHeight > 0.dp) {
             availHeight
         } else if (!isLandscape) {
             // In Vertical orientation, provide generous Y-axis room without artificial constriction.
@@ -162,9 +170,13 @@ fun CameraViewfinder(
             modifier = Modifier
                 .width(calculatedWidth)
                 .height(calculatedHeight)
-                .clip(RoundedCornerShape(16.dp))
+                .clip(if (isFullscreen) RoundedCornerShape(0.dp) else RoundedCornerShape(16.dp))
                 .background(InsetBackground)
-                .border(1.dp, Color(0xFF1E293B), RoundedCornerShape(16.dp))
+                .border(
+                    if (isFullscreen) 0.dp else 1.dp,
+                    if (isFullscreen) Color.Transparent else Color(0xFF1E293B),
+                    if (isFullscreen) RoundedCornerShape(0.dp) else RoundedCornerShape(16.dp)
+                )
                 .testTag("camera_viewfinder")
         ) {
             AndroidView(
@@ -179,6 +191,19 @@ fun CameraViewfinder(
                     .fillMaxSize()
                     .graphicsLayer {
                         scaleX = if (config.isMirrored) -1f else 1f
+                    }
+            )
+
+            // Double-tap gesture surface to toggle fullscreen mode
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .pointerInput(Unit) {
+                        detectTapGestures(
+                            onDoubleTap = {
+                                onToggleFullscreen()
+                            }
+                        )
                     }
             )
 
@@ -219,6 +244,37 @@ fun CameraViewfinder(
                         color = TextSecondary,
                         fontSize = if (isCompactHud) 11.sp else 12.sp
                     )
+                }
+
+                if (isFullscreen) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(10.dp),
+                        contentAlignment = Alignment.TopEnd
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color(0xCC0F172A))
+                                .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(8.dp))
+                                .clickable(onClick = onToggleFullscreen)
+                                .testTag("standby_fullscreen_exit_button")
+                                .padding(horizontal = 8.dp, vertical = 4.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.FullscreenExit,
+                                    contentDescription = "Exit Fullscreen",
+                                    tint = EmeraldLive,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Exit Fullscreen", fontSize = 11.sp, color = TextPrimary)
+                            }
+                        }
+                    }
                 }
             } else if (isBlackout) {
                 // Upstream Pipeline Teardown (Rule 22.2): Rendering sink decoupled at source
@@ -400,6 +456,25 @@ fun CameraViewfinder(
                                 fontFamily = FontFamily.Monospace,
                                 fontWeight = FontWeight.Bold,
                                 color = CyanAccent
+                            )
+                        }
+
+                        // Fullscreen toggle button
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color(0xCC0F172A))
+                                .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(8.dp))
+                                .clickable(onClick = onToggleFullscreen)
+                                .testTag("camera_viewfinder_fullscreen_button")
+                                .padding(horizontal = if (isCompactHud) 4.dp else 4.dp, vertical = 4.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = if (isFullscreen) Icons.Default.FullscreenExit else Icons.Default.Fullscreen,
+                                contentDescription = if (isFullscreen) "Exit Fullscreen" else "Enter Fullscreen",
+                                tint = if (isFullscreen) EmeraldLive else CyanAccent,
+                                modifier = Modifier.size(24.dp)
                             )
                         }
                     }

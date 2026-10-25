@@ -1,6 +1,7 @@
 package io.github.roaxio.ezcammic.ui
 
 import android.content.res.Configuration
+import androidx.activity.compose.BackHandler
 import androidx.camera.view.PreviewView
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
@@ -18,6 +19,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -53,6 +55,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -109,8 +112,13 @@ fun WebcamStudioScreen(
 
 
     var previewViewRef by remember { mutableStateOf<PreviewView?>(null) }
+    var isFullscreenPreview by rememberSaveable { mutableStateOf(false) }
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+
+    BackHandler(enabled = isFullscreenPreview) {
+        isFullscreenPreview = false
+    }
 
     // Auto-update device orientation and switch camera profile seamlessly
     LaunchedEffect(isLandscape) {
@@ -140,78 +148,80 @@ fun WebcamStudioScreen(
     }
 
     Box(modifier = modifier.fillMaxSize()) {
-    Scaffold(
+        Scaffold(
             topBar = {
-                TopAppBar(
-                    title = {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Image(
-                                painter = painterResource(id = R.drawable.ic_app_icon),
-                                contentDescription = "EZ-Cam-Mic",
-                                modifier = Modifier
-                                    .size(32.dp)
-                                    .clip(RoundedCornerShape(8.dp))
-                            )
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Column(modifier = Modifier.weight(1f).padding(end = 4.dp)) {
-                                Text(
-                                    text = "EZ-Cam-Mic",
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = TextPrimary,
-                                    softWrap = true
+                if (!isLandscape && !isFullscreenPreview) {
+                    TopAppBar(
+                        title = {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Image(
+                                    painter = painterResource(id = R.drawable.ic_app_icon),
+                                    contentDescription = "EZ-Cam-Mic",
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .clip(RoundedCornerShape(8.dp))
                                 )
-                                Text(
-                                    text = if (stats.isRunning) "Live • MJPEG & Audio" else "Offline • Ready to stream",
-                                    fontSize = 11.sp,
-                                    lineHeight = 13.sp,
-                                    color = if (stats.isRunning) EmeraldLive else TextSecondary,
-                                    softWrap = true,
-                                    maxLines = 2
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Column(modifier = Modifier.weight(1f).padding(end = 4.dp)) {
+                                    Text(
+                                        text = "EZ-Cam-Mic",
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = TextPrimary,
+                                        softWrap = true
+                                    )
+                                    Text(
+                                        text = if (stats.isRunning) "Live • MJPEG & Audio" else "Offline • Ready to stream",
+                                        fontSize = 11.sp,
+                                        lineHeight = 13.sp,
+                                        color = if (stats.isRunning) EmeraldLive else TextSecondary,
+                                        softWrap = true,
+                                        maxLines = 2
+                                    )
+                                }
+                            }
+                        },
+                        actions = {
+                            IconButton(
+                                onClick = { viewModel.setShowUsbDialog(true) },
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .testTag("help_guide_button")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.HelpOutline,
+                                    contentDescription = "PC Setup Guide",
+                                    tint = CyanAccent
                                 )
                             }
-                        }
-                    },
-                    actions = {
-                        IconButton(
-                            onClick = { viewModel.setShowUsbDialog(true) },
-                            modifier = Modifier
-                                .size(48.dp)
-                                .testTag("help_guide_button")
-                        ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.HelpOutline,
-                                contentDescription = "PC Setup Guide",
-                                tint = CyanAccent
-                            )
-                        }
-                        IconButton(
-                            onClick = onNavigateToSettings,
-                            modifier = Modifier
-                                .size(48.dp)
-                                .testTag("top_settings_button")
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Settings,
-                                contentDescription = "Settings",
-                                tint = TextSecondary
-                            )
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = SlateDark950
+                            IconButton(
+                                onClick = onNavigateToSettings,
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .testTag("top_settings_button")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Settings,
+                                    contentDescription = "Settings",
+                                    tint = TextSecondary
+                                )
+                            }
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(
+                            containerColor = SlateDark950
+                        )
                     )
-                )
+                }
             },
             containerColor = SlateDark950
         ) { innerPadding ->
             BoxWithConstraints(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(innerPadding)
+                    .padding(if (isFullscreenPreview) PaddingValues(0.dp) else innerPadding)
             ) {
                 val viewportWidth = maxWidth
                 val viewportHeight = maxHeight
@@ -234,13 +244,104 @@ fun WebcamStudioScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .padding(if (isNarrow) 8.dp else 14.dp),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                .padding(if (isFullscreenPreview) 0.dp else if (isNarrow) 8.dp else 12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(if (isFullscreenPreview) 0.dp else 12.dp)
                         ) {
                             Column(
-                                modifier = Modifier.weight(1.2f),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                                modifier = Modifier
+                                    .weight(if (isFullscreenPreview) 1f else 1.35f)
+                                    .fillMaxHeight(),
+                                verticalArrangement = Arrangement.spacedBy(if (isFullscreenPreview) 0.dp else 8.dp)
                             ) {
+                                if (!isFullscreenPreview) {
+                                    AnimatedVisibility(
+                                        visible = isMismatch,
+                                        enter = fadeIn() + expandVertically(),
+                                        exit = fadeOut() + shrinkVertically()
+                                    ) {
+                                        OrientationMismatchBanner(
+                                            onAdjustSettings = onNavigateToSettings
+                                        )
+                                    }
+                                }
+
+                                CameraViewfinder(
+                                    config = config,
+                                    stats = stats,
+                                    isLandscape = true,
+                                    isBlackout = isBlackout,
+                                    audioLevelRms = audioLevelRms,
+                                    isFullscreen = isFullscreenPreview,
+                                    onToggleFullscreen = { isFullscreenPreview = !isFullscreenPreview },
+                                    onOpenClientsList = { viewModel.setShowClientsDialog(true) },
+                                    onPreviewViewReady = { pv ->
+                                        previewViewRef = pv
+                                        viewModel.updatePreviewSurfaceProvider(pv.surfaceProvider)
+                                    },
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
+
+                            if (!isFullscreenPreview) {
+                                Column(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .fillMaxHeight()
+                                        .verticalScroll(rememberScrollState()),
+                                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    LandscapeHeaderBar(
+                                        isRunning = stats.isRunning,
+                                        onOpenHelp = { viewModel.setShowUsbDialog(true) },
+                                        onOpenSettings = onNavigateToSettings
+                                    )
+
+                                    ControlBar(
+                                        config = config,
+                                        isStreaming = stats.isRunning,
+                                        sensorLabel = sensorSwitchLabel,
+                                        onToggleStreaming = {
+                                            viewModel.toggleStreaming(lifecycleOwner, previewViewRef?.surfaceProvider)
+                                        },
+                                        onToggleCamera = { viewModel.toggleCamera(lifecycleOwner, previewViewRef?.surfaceProvider) },
+                                        onSwitchCamera = { viewModel.cycleNextCamera(lifecycleOwner, previewViewRef?.surfaceProvider) },
+                                        onToggleTorch = { viewModel.toggleTorch() },
+                                        onToggleMute = { viewModel.toggleMuteAudio() },
+                                        onToggleMirror = { viewModel.toggleMirror() },
+                                        onToggleGrid = { viewModel.toggleGrid() },
+                                        onToggleBlackout = { viewModel.setBlackoutMode(true) },
+                                        onOpenSettings = onNavigateToSettings
+                                    )
+
+                                    ConnectionCard(
+                                        primaryIp = primaryIp,
+                                        wifiIp = wifiIp,
+                                        usbIp = usbIp,
+                                        port = config.port,
+                                        stats = stats,
+                                        config = config,
+                                        isWebStreamingEnabled = config.isWebStreamingEnabled,
+                                        isUsbStreamingEnabled = config.isUsbStreamingEnabled,
+                                        onToggleWebStreaming = { viewModel.setWebStreamingEnabled(it) },
+                                        onToggleUsbStreaming = { viewModel.setUsbStreamingEnabled(it) },
+                                        onOpenGuide = { viewModel.setShowUsbDialog(true) }
+                                    )
+                                }
+                            }
+                        }
+                    } else {
+                        // Portrait Layout: Stacked vertically
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .widthIn(max = 680.dp)
+                                .padding(horizontal = if (isFullscreenPreview) 0.dp else contentHorizontalPadding)
+                                .then(if (isFullscreenPreview) Modifier else Modifier.verticalScroll(rememberScrollState())),
+                            verticalArrangement = Arrangement.spacedBy(if (isFullscreenPreview) 0.dp else contentVerticalSpacing)
+                        ) {
+                            if (!isFullscreenPreview) {
+                                Spacer(modifier = Modifier.height(2.dp))
+
                                 AnimatedVisibility(
                                     visible = isMismatch,
                                     enter = fadeIn() + expandVertically(),
@@ -250,27 +351,26 @@ fun WebcamStudioScreen(
                                         onAdjustSettings = onNavigateToSettings
                                     )
                                 }
-
-                                CameraViewfinder(
-                                    config = config,
-                                    stats = stats,
-                                    isLandscape = true,
-                                    isBlackout = isBlackout,
-                                    audioLevelRms = audioLevelRms,
-                                    onOpenClientsList = { viewModel.setShowClientsDialog(true) },
-                                    onPreviewViewReady = { pv ->
-                                        previewViewRef = pv
-                                        viewModel.updatePreviewSurfaceProvider(pv.surfaceProvider)
-                                    }
-                                )
                             }
 
-                            Column(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .verticalScroll(rememberScrollState()),
-                                verticalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
+                            CameraViewfinder(
+                                config = config,
+                                stats = stats,
+                                isLandscape = false,
+                                isBlackout = isBlackout,
+                                audioLevelRms = audioLevelRms,
+                                isFullscreen = isFullscreenPreview,
+                                onToggleFullscreen = { isFullscreenPreview = !isFullscreenPreview },
+                                maxViewportHeight = if (isFullscreenPreview) null else if (isShort) minOf(viewportHeight * 0.55f, 360.dp) else null,
+                                onOpenClientsList = { viewModel.setShowClientsDialog(true) },
+                                onPreviewViewReady = { pv ->
+                                    previewViewRef = pv
+                                    viewModel.updatePreviewSurfaceProvider(pv.surfaceProvider)
+                                },
+                                modifier = if (isFullscreenPreview) Modifier.fillMaxSize() else Modifier.fillMaxWidth()
+                            )
+
+                            if (!isFullscreenPreview) {
                                 ControlBar(
                                     config = config,
                                     isStreaming = stats.isRunning,
@@ -301,76 +401,9 @@ fun WebcamStudioScreen(
                                     onToggleUsbStreaming = { viewModel.setUsbStreamingEnabled(it) },
                                     onOpenGuide = { viewModel.setShowUsbDialog(true) }
                                 )
+
+                                Spacer(modifier = Modifier.height(16.dp))
                             }
-                        }
-                    } else {
-                        // Portrait Layout: Stacked vertically
-                        Column(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .widthIn(max = 680.dp)
-                                .padding(horizontal = contentHorizontalPadding)
-                                .verticalScroll(rememberScrollState()),
-                            verticalArrangement = Arrangement.spacedBy(contentVerticalSpacing)
-                        ) {
-                            Spacer(modifier = Modifier.height(2.dp))
-
-                            AnimatedVisibility(
-                                visible = isMismatch,
-                                enter = fadeIn() + expandVertically(),
-                                exit = fadeOut() + shrinkVertically()
-                            ) {
-                                OrientationMismatchBanner(
-                                    onAdjustSettings = onNavigateToSettings
-                                )
-                            }
-
-                            CameraViewfinder(
-                                config = config,
-                                stats = stats,
-                                isLandscape = false,
-                                isBlackout = isBlackout,
-                                audioLevelRms = audioLevelRms,
-                                maxViewportHeight = if (isShort) minOf(viewportHeight * 0.55f, 360.dp) else null,
-                                onOpenClientsList = { viewModel.setShowClientsDialog(true) },
-                                onPreviewViewReady = { pv ->
-                                    previewViewRef = pv
-                                    viewModel.updatePreviewSurfaceProvider(pv.surfaceProvider)
-                                }
-                            )
-
-                            ControlBar(
-                                config = config,
-                                isStreaming = stats.isRunning,
-                                sensorLabel = sensorSwitchLabel,
-                                onToggleStreaming = {
-                                    viewModel.toggleStreaming(lifecycleOwner, previewViewRef?.surfaceProvider)
-                                },
-                                onToggleCamera = { viewModel.toggleCamera(lifecycleOwner, previewViewRef?.surfaceProvider) },
-                                onSwitchCamera = { viewModel.cycleNextCamera(lifecycleOwner, previewViewRef?.surfaceProvider) },
-                                onToggleTorch = { viewModel.toggleTorch() },
-                                onToggleMute = { viewModel.toggleMuteAudio() },
-                                onToggleMirror = { viewModel.toggleMirror() },
-                                onToggleGrid = { viewModel.toggleGrid() },
-                                onToggleBlackout = { viewModel.setBlackoutMode(true) },
-                                onOpenSettings = onNavigateToSettings
-                            )
-
-                            ConnectionCard(
-                                primaryIp = primaryIp,
-                                wifiIp = wifiIp,
-                                usbIp = usbIp,
-                                port = config.port,
-                                stats = stats,
-                                config = config,
-                                isWebStreamingEnabled = config.isWebStreamingEnabled,
-                                isUsbStreamingEnabled = config.isUsbStreamingEnabled,
-                                onToggleWebStreaming = { viewModel.setWebStreamingEnabled(it) },
-                                onToggleUsbStreaming = { viewModel.setUsbStreamingEnabled(it) },
-                                onOpenGuide = { viewModel.setShowUsbDialog(true) }
-                            )
-
-                            Spacer(modifier = Modifier.height(16.dp))
                         }
                     }
                 }
@@ -618,6 +651,85 @@ private fun PermissionFeatureRow(title: String, desc: String) {
                 color = TextSecondary,
                 softWrap = true
             )
+        }
+    }
+}
+
+@Composable
+fun LandscapeHeaderBar(
+    isRunning: Boolean,
+    onOpenHelp: () -> Unit,
+    onOpenSettings: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .background(Color(0xFF0F172A))
+            .border(1.dp, Color(0xFF1E293B), RoundedCornerShape(10.dp))
+            .padding(horizontal = 10.dp, vertical = 6.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.weight(1f)
+        ) {
+            Image(
+                painter = painterResource(id = R.drawable.ic_app_icon),
+                contentDescription = "EZ-Cam-Mic",
+                modifier = Modifier
+                    .size(26.dp)
+                    .clip(RoundedCornerShape(6.dp))
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Column {
+                Text(
+                    text = "EZ-Cam-Mic",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = TextPrimary
+                )
+                Text(
+                    text = if (isRunning) "Live • MJPEG & Audio" else "Offline • Ready",
+                    fontSize = 10.sp,
+                    lineHeight = 12.sp,
+                    color = if (isRunning) EmeraldLive else TextSecondary
+                )
+            }
+        }
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            IconButton(
+                onClick = onOpenHelp,
+                modifier = Modifier
+                    .size(32.dp)
+                    .testTag("help_guide_button")
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.HelpOutline,
+                    contentDescription = "PC Setup Guide",
+                    tint = CyanAccent,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+            IconButton(
+                onClick = onOpenSettings,
+                modifier = Modifier
+                    .size(32.dp)
+                    .testTag("top_settings_button")
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Settings,
+                    contentDescription = "Settings",
+                    tint = TextSecondary,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
         }
     }
 }
